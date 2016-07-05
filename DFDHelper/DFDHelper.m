@@ -4,52 +4,62 @@
 
 #import "DFDHelper.h"
 
-#define GetUD(key)    [[NSUserDefaults standardUserDefaults] objectForKey:key]
-#define SetUD(k, v)   [[NSUserDefaults standardUserDefaults] setObject:v forKey:k]; [[NSUserDefaults standardUserDefaults]  synchronize];
-#define RemoveUD(k)   [[NSUserDefaults standardUserDefaults] removeObjectForKey:k]; [[NSUserDefaults standardUserDefaults] synchronize];
+#define DFDGetUD(key)    [[NSUserDefaults standardUserDefaults] objectForKey:key]
+#define DFDSetUD(k, v)   [[NSUserDefaults standardUserDefaults] setObject:v forKey:k]; [[NSUserDefaults standardUserDefaults]  synchronize];
+#define DFDRemoveUD(k)   [[NSUserDefaults standardUserDefaults] removeObjectForKey:k]; [[NSUserDefaults standardUserDefaults] synchronize];
 
-#define kS(_S)        NSLocalizedString(_S, @"")
-#define DNow          [NSDate date]
+#define DFDkS(_S)        NSLocalizedString(_S, @"")
+#define DFDNow           [NSDate date]
 
 @implementation DFDHelper
 
+// 在主线程执行
+// 可以用在复杂页面的延迟绘制中
 + (void)performBlockInMain:(void(^)())block{
     dispatch_async(dispatch_get_main_queue(), ^{
         block();
     });
 }
 
+// 在全局线程(后台线程)中执行
 + (void)performBlockInGlobal:(void(^)())block{
     [self performBlockInGlobal:block afterDelay:0];
 }
 
+// 在当前线程中执行(当前线程为非主线程)
 + (void)performBlockInCurrentTheard:(void (^)())block{
     [self performBlockInCurrentTheard:block afterDelay:0];
 }
 
+// 在几秒后主线程中执行
 + (void)performBlockInMain:(void(^)())block afterDelay:(NSTimeInterval)delay{
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         block();
     });
 }
 
+// 在几秒后后台线程中执行
 + (void)performBlockInGlobal:(void(^)())block afterDelay:(NSTimeInterval)delay{
     dispatch_async(dispatch_get_global_queue(0, 0), ^{block();});
 }
 
+// 在几秒后当前线程中执行(当前线程为非主线程)
 + (void)performBlockInCurrentTheard:(void (^)())block afterDelay:(NSTimeInterval)delay{
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC));
-    dispatch_after(popTime, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{block();});
+    dispatch_after(popTime, dispatch_get_global_queue(0, 0), ^{block();});
 }
 
+// 获取版本号
 + (NSString *)getIOSVersion{
     return [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleShortVersionString"];
 }
 
+// 获取APP名称 (中文下中文，多语言时为当前语言时的APP名称)
 + (NSString *)getIOSName{
     return [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleDisplayName"];
 }
 
+// APP是否允许通知
 + (BOOL)isAllowedNotification
 {
     if ([[[UIDevice currentDevice] systemVersion] doubleValue] >= 8)
@@ -65,9 +75,10 @@
 }
 
 // 获取当前语言环境   1:中文  2:英文  3:法文  4:西班牙
+// 此方法需要配合APPDelegate中删除 UserDefaults 中的 DFDCurrentLanguage
 + (int)getLanguage
 {
-    int langIn = [(NSNumber *)GetUD(@"CurrentLanguage") intValue];
+    int langIn = [(NSNumber *)DFDGetUD(@"DFDCurrentLanguage") intValue];
     if (langIn) return langIn;
     NSString * pre = [self getPreferredLanguageStr];
     if ([pre isEqualToString:@"zh"]) {
@@ -86,16 +97,17 @@
         langIn =  4;
     }
     
-    SetUD(@"CurrentLanguage", @(langIn));
+    DFDSetUD(@"DFDCurrentLanguage", @(langIn));
     return langIn;
 }
 
+// 获取当前语言的字符串
 + (NSString *)getPreferredLanguageStr
 {
-    return [[(NSArray *)GetUD(@"AppleLanguages") objectAtIndex:0] substringWithRange:NSMakeRange(0, 2)];
+    return [[(NSArray *)DFDGetUD(@"AppleLanguages") objectAtIndex:0] substringWithRange:NSMakeRange(0, 2)];
 }
 
-
+// 从工程目录中的json文件中获取NSData
 + (NSData *)getDataFromJSON:(NSString *)fileName
 {
     NSData *jdata = [[NSData alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:fileName ofType:@"json"]];
@@ -107,32 +119,6 @@
     return nil;
 }
 
-+ (NSData *)getCountiesAndCitiesrDataFromJSON
-{
-    //#warning ---------------- FIXME for Language 这里等百科数据中的法文和西班牙文翻译后，注释
-    NSInteger langIndex =  [self getLanguage];
-    NSString *jsonName = @"";
-    switch (langIndex) {
-        case 1:
-            jsonName = @"city_zh";
-            break;
-        case 2:
-            jsonName = @"city_en";
-            break;
-        case 3:
-            
-            jsonName = @"city_fr";
-            jsonName = @"city_en";
-            break;
-        case 4:
-            jsonName = @"city_es";
-            jsonName = @"city_en";
-            break;
-    }
-    
-    NSData *data = [self getDataFromJSON:jsonName];
-    return data;
-}
 
 // 删除本地通知 根据userinfo中是否还有 name    name为nil时 删除所有
 + (void)clearNotification:(NSString *)name
@@ -179,6 +165,7 @@
     [[UIApplication sharedApplication] scheduleLocalNotification:notifi];
 }
 
+// 获取 Image 的图片类型 data：image的NSData
 + (NSString *)typeForImageData:(NSData *)data
 {
     uint8_t c;
@@ -197,7 +184,7 @@
     return nil;
 }
 
-// 把 NSSet 安卓指定的字段进行排序 返回 NSMutableArray
+// 把 NSSet 按照指定的字段进行排序 返回 NSMutableArray
 + (NSMutableArray *)setNSDestByOrder:(NSSet *)set
                             orderStr:(NSString *)orderStr
                            ascending:(BOOL)ascending
@@ -230,7 +217,7 @@
     return (NSInteger)fD;
 }
 
-// 保存图片到
+// 保存图片到Document下的指定文件夹
 + (BOOL)saveImageToDocoment:(NSData *)imageData
                        name:(NSString *)name
 {
@@ -244,6 +231,7 @@
     }
 }
 
+// 获取Document下的具体文件的路径
 + (NSString *)dataPath:(NSString *)file
 {
     NSString *path = [[NSHomeDirectory() stringByAppendingPathComponent:@"Documents"] stringByAppendingPathComponent:@""];
@@ -253,14 +241,17 @@
     return [path stringByAppendingPathComponent:file];
 }
 
+// 获取缓存目录
 + (NSString *)getCacheURL{
     return [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) objectAtIndex:0];
 }
 
+// 获取Document目录
 + (NSString *)getDomentURL{
     return [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
 }
 
+// 获取具体目录下的所有文件名的集合
 + (NSArray *)getFileNamesFromURL:(NSString *)url{
     return [[NSArray alloc] initWithArray:[[NSFileManager defaultManager] contentsOfDirectoryAtPath:url error:nil]];
 }
@@ -310,38 +301,6 @@
     return  count;
 }
 
-// ------------------------------------------------------ 这两个是一对 ↓↓↓↓↓↓↓↓↓↓↓↓↓
-//  int 转换成 年月日数组
-+ (NSMutableArray *)HmF2KIntToDate:(int)f2kDate
-{
-    int times[3];
-    times[0]=2000;
-    
-    while ( f2kDate >= [self yearDay:times[0]])
-    {
-        f2kDate-= [self yearDay:times[0]];
-        times[0]++;
-    }
-    
-    times[1]=0;
-    
-    while ( f2kDate >= [self monthDays:times[0] month:times[1]])
-    {
-        f2kDate -= [self monthDays:times[0] month:times[1]];
-        times[1]++;
-    }
-    
-    times[2]= f2kDate;
-    NSMutableArray *arr = [NSMutableArray new];
-    
-    
-    [arr addObject:@(times[0])];
-    
-    [arr addObject:@(++times[1])];
-    
-    [arr addObject:@(++times[2])];
-    return arr;
-}
 
 + (int)monthDays:(int)year month:(int)month
 {
@@ -368,60 +327,8 @@
     return days;
 }
 
-//  年月日数组 转换成 int 
-+ (int)HmF2KDateToInt:(NSMutableArray *)array
-{
-    int date= [((NSNumber *)array[2]) intValue] - 1;
-    int month =  [((NSNumber *)array[1]) intValue] - 1;;
-    int year = [((NSNumber *)array[0]) intValue];
-    while ( --month >= 0 )
-    {
-        date += [self monthDays:year month:month];
-    }
-    while ( --year >= 2000 )
-    {
-        date += [self yearDay:year];
-    }
-    return date;
-}
-// ------------------------------------------------------ 这两个是一对 ↑↑↑↑↑↑↑↑↑↑↑↑↑↑
-
-
-
 // ------------------------------------------------------ 这两个是一对 ↓↓↓↓↓↓↓↓↓↓↓↓↓
-//  NSDate 转换成 int    5934 -> NSDate
-+ (int)HmF2KNSDateToInt:(NSDate *)date
-{
-    NSMutableArray *arr = [NSMutableArray new];
-    int year  = [self getFromDate:date type:1];
-    int month = [self getFromDate:date type:2];
-    int day   = [self getFromDate:date type:3];
-    
-    [arr addObject:@(year)];
-    [arr addObject:@(month)];
-    [arr addObject:@(day)];
-    
-    int dateValue = [self HmF2KDateToInt:arr];
-    return dateValue;
-}
-
-//  int 转换成 NSDate   5934  ->  NSDate
-+ (NSDate *)HmF2KNSIntToDate:(int)dateValue
-{
-    return [self getDateFromArr:[self HmF2KIntToDate:dateValue]];
-}
-
-
-
-// ------------------------------------------------------ 这两个是一对 ↑↑↑↑↑↑↑↑↑↑↑↑↑↑
-
-+ (NSString *)toStringFromDateValue:(int)dateValue
-{
-    NSMutableArray *arr = [self HmF2KIntToDate:dateValue];
-    return [NSString stringWithFormat:@"%d%02d%02d", [arr[0] intValue], [arr[1] intValue], [arr[2] intValue]];
-}
-
-// ------------------------------------------------------ 这两个是一对 ↓↓↓↓↓↓↓↓↓↓↓↓↓
+// dic -> json
 + (NSString*)dictionaryToJson:(NSDictionary *)dic
 {
     NSError *error = nil;
@@ -433,6 +340,7 @@
     return [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
 }
 
+// json -> dic
 + (NSDictionary *)dictionaryWithJsonString:(NSString *)jsonString
 {
     if (!jsonString) return nil;
@@ -473,14 +381,16 @@
     return [[[arrNew reverseObjectEnumerator] allObjects] mutableCopy];
 }
 
+// 当前是否是24小时
+// 需要配合 AppDelegate 中 删除 DFDis24
 +(BOOL)isSysTime24
 {
-    NSNumber *sysTime = GetUD(@"is24");
+    NSNumber *sysTime = DFDGetUD(@"DFDis24");
     if (sysTime) return [sysTime boolValue];
     NSString *formatStringForHours = [NSDateFormatter dateFormatFromTemplate:@"j" options:0 locale:[NSLocale currentLocale]];
     NSRange containsA = [formatStringForHours rangeOfString:@"a"];
     BOOL hasAMPM = containsA.location != NSNotFound;
-    SetUD(@"is24", @(!hasAMPM));
+    DFDSetUD(@"DFDis24", @(!hasAMPM));
     return !hasAMPM;
 }
 
@@ -498,41 +408,6 @@
     return jsonString;
 }
 
-#pragma mark  设置最新的同步时间
-+(void)setLastSysDateTime:(NSDate *)date access:(NSString *)access
-{
-    NSMutableDictionary *dic = [NSMutableDictionary dictionaryWithDictionary:GetUD(@"LastSysDateTimeData")];
-    [dic setValue:date forKey:access];
-    SetUD(@"LastSysDateTimeData", dic);
-}
-
-#pragma mark  设置最新的上传时间
-+(void)setLastUpLoadDateTime:(NSDate *)date access:(NSString *)access
-{
-    NSMutableDictionary *dic = [NSMutableDictionary dictionaryWithDictionary:GetUD(@"LastUpLoadDateTimeData")];
-    [dic setValue:date forKey:access];
-    SetUD(@"LastUpLoadDateTimeData", dic);
-}
-
-+(NSDate *)getLastSysDateTime:(NSString *)access
-{
-    NSDictionary *dicLastSyn = GetUD(@"LastSysDateTimeData");
-    NSDate *date = (NSDate *)dicLastSyn[access];
-    if (date) {
-        return date;
-    }else
-        return [NSDate dateWithTimeIntervalSinceNow:-24 * 60 * 60];
-}
-
-+(NSDate *)getLastUpLoadDateTime:(NSString *)access
-{
-    NSDictionary *dicLastSyn = GetUD(@"LastUpLoadDateTimeData");
-    NSDate *date = (NSDate *)dicLastSyn[access];
-    if (date) {
-        return date;
-    }else
-        return [NSDate dateWithTimeIntervalSinceNow:-24 * 60 * 60];
-}
 
 // 从喝水集合中获取喝水总量 (过滤掉相同时间点的数据)
 + (NSInteger)getWaterCountFromWater_array:(NSString *)water_array time_array:(NSString *)time_array
@@ -552,48 +427,6 @@
     return waterCount;
 }
 
-//  把从时间（时分秒）获取 当天的时间
-+ (NSDate *)getDateTimeFormDateValue:(int)timeValue
-{
-    NSDate *now              = DNow;
-    int year                 = [self getFromDate:now type:1];
-    int month                = [self getFromDate:now type:2];
-    int day                  = [self getFromDate:now type:3];
-    NSMutableArray *arrDate6 = [@[@(year), @(month), @(day)] mutableCopy];
-    NSMutableArray *arr_3    = [self getHourMinuteSecondFormDateValue:timeValue];
-    [arrDate6 addObjectsFromArray:arr_3];
-    return  [self getDateFromArr:arrDate6];
-}
-
-
-//  从喝水集合和时间集合中获取每小时的喝水量集合
-+ (NSString *)getWater_array_Hour_FromArray:(NSString *)water_array time_array:(NSString *)time_array
-{
-    NSArray *arrWater = [water_array componentsSeparatedByString:@","];
-    NSArray *arrTime = [time_array componentsSeparatedByString:@","];
-    
-    int waterHour[24] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-    
-    for (int i = 0 ; i < arrWater.count; i++)
-    {
-        NSMutableArray *arrDate = [self getHourMinuteSecondFormDateValue:[arrTime[i] intValue]];
-        int hour = [arrDate[0] intValue];
-        waterHour[hour] += [arrWater[i] intValue];
-    }
-    
-    return  [self intIntsToString: waterHour length:24];
-}
-
-// 从时间(datevalue)获取  小时 分 秒 数组
-+ (NSMutableArray *)getHourMinuteSecondFormDateValue:(int)timeValue
-{
-    int hour = timeValue / 1800;
-    int minute = (timeValue - hour * 1800) / 30;
-    int second = timeValue - hour * 1800 - minute * 30;
-    NSMutableArray *arr = [[NSMutableArray alloc] initWithObjects:@(hour), @(minute), @(second), nil];
-    return arr;
-}
-
 // 从int数组 拼接字符串
 + (NSString *)intIntsToString:(int[])arr length:(int)length
 {
@@ -608,32 +441,6 @@
         }
     }
     return strResult;
-}
-
-// 获取喝水最多的时间字符串
-+ (NSString *)getMaxWaterOnTime:(NSString *)water_array time_array:(NSString *)time_array
-{
-    if (!water_array || !time_array) return @"";
-    NSArray *arrWater = [water_array componentsSeparatedByString:@","];
-    NSArray *arrTime = [time_array componentsSeparatedByString:@","];
-    int indexMax = 0;
-    int biggestWater = [arrWater[0] intValue];
-    for (int i = 0; i < arrWater.count; i++)
-    {
-        int waterThis = [arrWater[i] intValue];
-        if (biggestWater < waterThis)
-        {
-            biggestWater = waterThis;
-            indexMax = i;
-        }
-    }
-    
-    int timeValue = [arrTime[indexMax] intValue];
-    NSMutableArray *arrHourMinuteSencond = [self getHourMinuteSecondFormDateValue: timeValue];
-    int hour = [arrHourMinuteSencond[0] intValue];
-    int minute = [arrHourMinuteSencond[1] intValue];
-    
-    return [self toStringByHourAndMinute:@(hour) minute:@(minute)];
 }
 
 
@@ -686,62 +493,16 @@
     return interval;
 }
 
-// ------------------------------------------------------ 这两个是一对 ↑↑↑↑↑↑↑↑↑↑↑↑↑↑
-// ------------------------------------------------------ 这两个是一对 ↑↑↑↑↑↑↑↑↑↑↑↑↑↑
-
-// 进行排序
-+ (NSMutableArray *)sort:(NSMutableArray *)arr
-{
-    NSMutableArray *arrResult = [arr mutableCopy];
-    for (int i = 1; i < arr.count; i++)
-    {
-        for (int j = i + 1; j < arr.count; j++)
-        {
-            NSDictionary *dicLeft = arr[i];
-            NSDictionary *dicRight = arr[j];
-            int left = [dicLeft.allKeys[0] intValue];
-            int right = [dicRight.allKeys[0] intValue];
-            if (left > right) {
-                NSDictionary *dicTag = [dicLeft mutableCopy];
-                arrResult[i] = [dicRight mutableCopy];
-                arrResult[j] = [dicTag mutableCopy];
-                arr = [arrResult mutableCopy];
-            }
-        }
-    }
-    return arrResult;
-}
-
-
-// 把 小时  分钟  转化成 显示 （14：20  或者 02：20 PM）
-
-+(NSString *)toStringByHourAndMinute:(NSNumber *)hour minute:(NSNumber *)minute
-{
-    if ([self isSysTime24]) {
-        return [NSString stringWithFormat:@" %02d:%02d", [hour intValue], [minute intValue]];
-    }else
-    {
-        int hourInt = [hour intValue];
-        int minuteInt = [minute intValue];
-        hourInt = hourInt == 0 ? 24 : hourInt;
-        
-        NSString *str = [NSString stringWithFormat:@"%d:%02d%@",
-                         (hourInt > 12 ? hourInt - 12 : hourInt),
-                         minuteInt,
-                         ((hourInt >= 12 && hourInt != 24) ? @"PM":@"AM")];
-        return str;
-    }
-}
 
 //  把 距离转换成 显示的字符  800 ——> 800米   1800 ——>  1.8公里
 + (NSString *)toStringFromDist:(int)dist isMetric:(BOOL)isMetric
 {
     NSString *disStr;
     if (isMetric) {
-        disStr = dist >= 1000 ? [NSString stringWithFormat:@"%.2f%@", dist / 1000.0, kS(@"公里")] : [NSString stringWithFormat:@"%d%@", dist, kS(@"米")];
+        disStr = dist >= 1000 ? [NSString stringWithFormat:@"%.2f%@", dist / 1000.0, DFDkS(@"公里")] : [NSString stringWithFormat:@"%d%@", dist, DFDkS(@"米")];
     }else{
         CGFloat distMi = dist / 1000.0 * 0.6213712;
-        disStr = distMi >= 1 ? [NSString stringWithFormat:@"%.2f%@", distMi, kS(@"英里")]: [NSString stringWithFormat:@"%.0f%@", distMi * 5280, kS(@"英尺")];;
+        disStr = distMi >= 1 ? [NSString stringWithFormat:@"%.2f%@", distMi, DFDkS(@"英里")]: [NSString stringWithFormat:@"%.0f%@", distMi * 5280, DFDkS(@"英尺")];;
     }
     return disStr;
 }
@@ -812,7 +573,7 @@
     }
     else if(arr.count == 4)
     {
-        NSDate *now         = DNow;
+        NSDate *now         = DFDNow;
         int year            = [self getFromDate:now type:1];
         int month           = [self getFromDate:now type:2];
         int day             = [self getFromDate:now type:3];
@@ -851,7 +612,8 @@
 
 // 原来的 Date toString
 // 把日期转换成指定的格式   //  如果是 小时分钟 类似  hh:mm a  这样的， 应该使用 getTimeStringFromDate
-+ (NSString *)dateToString:(NSDate *)date stringType:(NSString *)stringType
++ (NSString *)dateToString:(NSDate *)date
+                stringType:(NSString *)stringType
 {
     NSDateFormatter  *dateformatter=[[NSDateFormatter alloc] init];
     [dateformatter setDateFormat:stringType];
@@ -935,15 +697,16 @@
     NSDate *date = [self getDateFromArr:arr];
     if (!date) {
         NSLog(@"尼玛  日期错误啦 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-        return DNow;
+        return DFDNow;
     }
     return  date;
 }
 
+// 是否是当天
 + (BOOL)isToday:(NSDate *)date
 {
     if (!self) return NO;
-    NSDate *now   = DNow;
+    NSDate *now   = DFDNow;
     int year      = [self getFromDate:now type:1];
     int month     = [self getFromDate:now type:2];
     int day       = [self getFromDate:now type:3];
@@ -957,30 +720,17 @@
         return NO;
 }
 
-+ (NSString *)toStringForShow:(NSDate *)date
-{
-    int hour   = [self getFromDate:date type:4];
-    int minute = [self getFromDate:date type:5];
-    
-    if ([self isSysTime24]) {
-        return [NSString stringWithFormat:@"%02d:%02d", hour, minute];
-    }else
-    {
-        hour = hour == 0 ? 24 : hour;
-        NSString *str = [NSString stringWithFormat:@"%02d:%02d%@",
-                         (hour > 12 ? hour - 12 : hour),
-                         minute,
-                         ((hour >= 12 && hour != 24) ? @"PM":@"AM")];
-        return str;
-    }
-}
 
+// 获取年龄
 + (int)getAgeFromBirthDay:(NSDate *)date
 {
-    return [DNow timeIntervalSinceDate:date] / (3600*24*365);
+    return [DFDNow timeIntervalSinceDate:date] / (3600*24*365);
 }
 
-
+// 获取照片
+// isFromPhotos:YES:从相册  NO:从摄像头
+// 当前的控制器
+// 调用前检查
 + (void)getPictureFormPhotosOrCamera:(BOOL)isFromPhotos
                                   vc:(UIViewController<UIImagePickerControllerDelegate, UINavigationControllerDelegate, UIImagePickerControllerDelegate> *)vc
                    checekBeforeBlock:(void(^)())checekBeforeBlock
@@ -1011,7 +761,8 @@
 }
 
 // 给数组中的字典排序，按照指定的key, 由大到小
-+ (NSMutableArray *)sort:(NSMutableArray *)arr byString:(NSString *)byString
++ (NSMutableArray *)sort:(NSMutableArray *)arr
+                byString:(NSString *)byString
 {
     [arr sortUsingComparator:^NSComparisonResult(id  _Nonnull obj1, id  _Nonnull obj2) {
         
@@ -1059,7 +810,18 @@
     return totalMilliseconds;
 }
 
-
-
+//设置APP角标
++ (void)setIconNumber:(int)num
+{
+    UIApplication *app = [UIApplication sharedApplication];
+    if (app.applicationIconBadgeNumber != num) {
+        if([[UIDevice currentDevice]systemVersion].floatValue >= 8)
+        {
+            UIUserNotificationSettings *settings = [UIUserNotificationSettings settingsForTypes:UIUserNotificationTypeBadge categories:nil];
+            [[UIApplication sharedApplication] registerUserNotificationSettings:settings];
+        }
+        app.applicationIconBadgeNumber = num;
+    }
+}
 
 @end

@@ -31,8 +31,6 @@
 
 + (NSData *)getDataFromJSON:(NSString *)fileName;
 
-+ (NSData *)getCountiesAndCitiesrDataFromJSON;
-
 + (void)clearNotification:(NSString *)name;
 
 + (void)addLocalNotification:(NSDate *)date
@@ -71,14 +69,6 @@
 
 + (NSInteger)getDaysByYearAndMonth:(NSInteger)year month:(NSInteger)month;
 
-+ (NSMutableArray *)HmF2KIntToDate:(int)f2kDate;
-+ (int)HmF2KDateToInt:(NSMutableArray *)array;
-
-+ (int)HmF2KNSDateToInt:(NSDate *)date;
-+ (NSDate *)HmF2KNSIntToDate:(int)dateValue;
-
-+ (NSString *)toStringFromDateValue:(int)dateValue;
-
 + (NSString*)dictionaryToJson:(NSDictionary *)dic;
 + (NSDictionary *)dictionaryWithJsonString:(NSString *)jsonString;
 
@@ -88,25 +78,7 @@
 
 + (NSString *)toJsonStringForUpload:(NSObject *)obj;
 
-+ (void)setLastSysDateTime:(NSDate *)date access:(NSString *)access;
-
-+ (void)setLastUpLoadDateTime:(NSDate *)date access:(NSString *)access;
-
-+ (NSDate *)getLastSysDateTime:(NSString *)access;
-
-+ (NSDate *)getLastUpLoadDateTime:(NSString *)access;
-
-+ (NSInteger)getWaterCountFromWater_array:(NSString *)water_array time_array:(NSString *)time_array;
-
-+ (NSString *)getWater_array_Hour_FromArray:(NSString *)water_array time_array:(NSString *)time_array;
-
-+ (NSMutableArray *)getHourMinuteSecondFormDateValue:(int)timeValue;
-
-+ (NSDate *)getDateTimeFormDateValue:(int)timeValue;
-
 + (NSString *)intIntsToString:(int[])arr length:(int)length;
-
-+ (NSString *)getMaxWaterOnTime:(NSString *)water_array time_array:(NSString *)time_array;
 
 + (NSData *)dicToData:(NSDictionary *)dic;
 
@@ -119,10 +91,6 @@
 + (NSString *)getTimeStringFromInterval:(int)interval;
 
 + (int)getIntervalFromTime:(NSDate *)date;
-
-+ (NSMutableArray *)sort:(NSMutableArray *)arr;
-
-+ (NSString *)toStringByHourAndMinute:(NSNumber *)hour minute:(NSNumber *)minute;
 
 + (NSString *)toStringFromDist:(int)dist isMetric:(BOOL)isMetric;
 
@@ -146,8 +114,6 @@
 
 + (BOOL)isToday:(NSDate *)date;
 
-+ (NSString *)toStringForShow:(NSDate *)date;
-
 + (int)getAgeFromBirthDay:(NSDate *)date;
 
 + (void)getPictureFormPhotosOrCamera:(BOOL)isFromPhotos
@@ -164,5 +130,6 @@
 
 + (long long)getLongFromDate:(NSDate *)datetime;
 
++ (void)setIconNumber:(int)num;
 
 @end
